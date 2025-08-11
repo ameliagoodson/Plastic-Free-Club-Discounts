@@ -1,0 +1,36 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "0cc45ef18b4a6e0958e4ff4d647fcd97"
+name = "Plastic Free Club Discounts"
+handle = "plastic-free-club-discounts"
+application_url = "https://welfare-boundary-try-ericsson.trycloudflare.com"
+embedded = true
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2025-07"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "https://rl-silver-kong-eg.trycloudflare.com/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "https://rl-silver-kong-eg.trycloudflare.com/webhooks/app/scopes_update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products,read_customers,write_discounts"
+
+[auth]
+redirect_urls = [
+  "https://welfare-boundary-try-ericsson.trycloudflare.com/auth/callback",
+  "https://welfare-boundary-try-ericsson.trycloudflare.com/auth/shopify/callback",
+  "https://welfare-boundary-try-ericsson.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false

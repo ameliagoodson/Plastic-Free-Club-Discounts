@@ -1,0 +1,16 @@
+name = "pfc-cart-transform"
+type = "cart_transform"
+api_version = "2025-07"
+
+[[extensions.targeting]]
+target = "cart.transform.run"
+input_query = "src/input.graphql"
+export = "run"
+
+[build]
+command = "npm run build"
+path = "dist/index.js"
+
+[ui.paths]
+create = "/cart-transform"
+details = "/cart-transform/:id"

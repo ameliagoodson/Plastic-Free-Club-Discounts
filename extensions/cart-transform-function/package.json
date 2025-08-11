@@ -1,0 +1,18 @@
+{
+  "name": "pfc-cart-transform",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@shopify/shopify-api": "^8.0.0"
+  },
+  "devDependencies": {
+    "@shopify/shopify-app-remix": "^3.7.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  }
+}

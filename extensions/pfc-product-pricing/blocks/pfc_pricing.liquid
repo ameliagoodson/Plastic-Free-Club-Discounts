@@ -1,0 +1,78 @@
+{% comment %}
+  PFC Product Pricing Block
+  Shows discounted prices for PFC members on product pages
+{% endcomment %}
+
+{% assign product = block.settings.product %}
+{% assign current_variant = product.selected_or_first_available_variant %}
+
+{% if product and current_variant %}
+  {% comment %} Get the current customer's tags {% endcomment %}
+  {% assign is_pfc_member = false %}
+  {% assign pfc_tag = 'plastic-free-club' %}
+
+  {% if customer and customer.tags %}
+    {% for tag in customer.tags %}
+      {% assign tag_downcase = tag | downcase %}
+      {% if tag_downcase == pfc_tag %}
+        {% assign is_pfc_member = true %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% if is_pfc_member %}
+    {% comment %} Calculate PFC discount (10% by default) {% endcomment %}
+    {% assign discount_percent = 10 %}
+    {% assign original_price = current_variant.price %}
+    {% assign compare_at_price = current_variant.compare_at_price %}
+
+    {% if compare_at_price and compare_at_price > 0 %}
+      {% assign base_price = compare_at_price %}
+    {% else %}
+      {% assign base_price = original_price %}
+    {% endif %}
+
+    {% assign discount_amount = base_price | times: discount_percent | divided_by: 100 %}
+    {% assign pfc_price = base_price | minus: discount_amount %}
+
+    <div
+      class="pfc-pricing-block"
+      style="margin: 10px 0; padding: 10px; background-color: #f0f8f0; border: 1px solid #4CAF50; border-radius: 4px;"
+    >
+      <div class="pfc-member-price">
+        <span class="pfc-label" style="color: #4CAF50; font-weight: bold;">PFC Member Price:</span>
+        <span class="pfc-price" style="font-size: 1.2em; font-weight: bold; color: #2E7D32;">
+          {{ pfc_price | money }}
+        </span>
+        {% if compare_at_price and compare_at_price > 0 %}
+          <span class="pfc-original-price" style="text-decoration: line-through; color: #666; margin-left: 8px;">
+            {{ compare_at_price | money }}
+          </span>
+        {% else %}
+          <span class="pfc-original-price" style="text-decoration: line-through; color: #666; margin-left: 8px;">
+            {{ original_price | money }}
+          </span>
+        {% endif %}
+      </div>
+      <div class="pfc-discount-info" style="font-size: 0.9em; color: #666; margin-top: 4px;">
+        <span class="pfc-discount-percent">{{ discount_percent }}% PFC member discount applied</span>
+      </div>
+    </div>
+  {% endif %}
+{% endif %}
+
+{% schema %}
+{
+  "name": "PFC Product Pricing",
+  "target": "section",
+  "settings": [
+    {
+      "type": "product",
+      "id": "product",
+      "label": "Product",
+      "autofill": true
+    }
+  ]
+}
+{% endschema %}

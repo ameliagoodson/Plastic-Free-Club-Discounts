@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// Global discount settings - what we're building now
+model DiscountSettings {
+  id              String   @id @default(cuid())
+  shop            String   @unique
+  discountPercent Float    @default(0)
+  isEnabled       Boolean  @default(false)
+  pfcMemberTag    String   @default("plastic-free-club") // Tag used to identify PFC members
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Individual product price overrides - for future feature
+model ProductOverride {
+  id                String   @id @default(cuid())
+  shop              String
+  productId         String   // Shopify product ID
+  variantId         String?  // Optional: specific variant ID
+  customPrice       Float?   // Override the regular price
+  customCompareAtPrice Float? // Override the compare-at price
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([shop, productId, variantId])
+}
+
+// Store original prices for reverting when discounts are disabled
+model OriginalPrice {
+  id              String   @id @default(cuid())
+  shop            String
+  productId       String   // Shopify product ID
+  variantId       String   // Shopify variant ID
+  originalPrice   String   // Original price before discount was applied
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([shop, productId, variantId])
+}
