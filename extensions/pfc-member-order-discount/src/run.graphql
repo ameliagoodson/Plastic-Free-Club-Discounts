@@ -32,5 +32,14 @@ query RunInput {
         }
       }
     }
+    deliveryGroups {
+      id
+      deliveryOptions {
+        cost {
+          amount
+          currencyCode
+        }
+      }
+    }
   }
 }

@@ -1,0 +1,22 @@
+query RunInput {
+  discountNode {
+    metafield(
+      namespace: "$app:pfc-shipping-discount"
+      key: "function-configuration"
+    ) {
+      value
+    }
+  }
+  cart {
+    buyerIdentity {
+      customer {
+        hasAnyTag(tags: ["PFC_member", "plastic-free-club"])
+      }
+    }
+    deliveryGroups {
+      deliveryOptions {
+        handle
+      }
+    }
+  }
+}

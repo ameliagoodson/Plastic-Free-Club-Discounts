@@ -33,13 +33,16 @@ model Session {
 
 // Global discount settings - what we're building now
 model DiscountSettings {
-  id              String   @id @default(cuid())
-  shop            String   @unique
-  discountPercent Float    @default(0)
-  isEnabled       Boolean  @default(false)
-  pfcMemberTag    String   @default("plastic-free-club") // Tag used to identify PFC members
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  shop                 String   @unique
+  discountPercent      Float    @default(0)
+  isEnabled            Boolean  @default(false)
+  freeShippingEnabled  Boolean  @default(false) // Separate toggle for free shipping
+  pfcMemberTag         String   @default("plastic-free-club") // Tag used to identify PFC members
+  productDiscountId    String?  // Store the Shopify discount ID for updates
+  shippingDiscountId   String?  // Store the Shopify shipping discount ID for updates
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 // Individual product price overrides - for future feature
