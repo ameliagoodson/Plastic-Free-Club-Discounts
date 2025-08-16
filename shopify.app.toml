@@ -3,7 +3,7 @@
 client_id = "0cc45ef18b4a6e0958e4ff4d647fcd97"
 name = "Plastic Free Club Discounts"
 handle = "plastic-free-club-discounts"
-application_url = "https://singapore-positions-species-cakes.trycloudflare.com"
+application_url = "https://wooden-behind-corrections-camera.trycloudflare.com"
 embedded = true
 
 [build]
@@ -27,9 +27,9 @@ scopes = "write_products,read_customers,write_discounts"
 
 [auth]
 redirect_urls = [
-  "https://singapore-positions-species-cakes.trycloudflare.com/auth/callback",
-  "https://singapore-positions-species-cakes.trycloudflare.com/auth/shopify/callback",
-  "https://singapore-positions-species-cakes.trycloudflare.com/api/auth/callback"
+  "https://wooden-behind-corrections-camera.trycloudflare.com/auth/callback",
+  "https://wooden-behind-corrections-camera.trycloudflare.com/auth/shopify/callback",
+  "https://wooden-behind-corrections-camera.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

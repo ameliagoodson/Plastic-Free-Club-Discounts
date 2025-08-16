@@ -16,6 +16,7 @@
       {% assign tag_downcase = tag | downcase %}
       {% if tag_downcase == pfc_tag %}
         {% assign is_pfc_member = true %}
+
         {% break %}
       {% endif %}
     {% endfor %}

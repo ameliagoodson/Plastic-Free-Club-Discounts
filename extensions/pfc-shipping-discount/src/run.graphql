@@ -10,7 +10,7 @@ query RunInput {
   cart {
     buyerIdentity {
       customer {
-        hasAnyTag(tags: ["PFC_member", "plastic-free-club"])
+        hasAnyTag(tags: ["PFC_member"])
       }
     }
     deliveryGroups {

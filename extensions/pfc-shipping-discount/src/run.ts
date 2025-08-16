@@ -22,7 +22,15 @@ export function run(input: RunInput): FunctionRunResult {
   const enabled = Boolean(configuration.enabled ?? true);
   const customerIsMember = Boolean(input.cart.buyerIdentity?.customer?.hasAnyTag);
 
+  // Debug logging
+  console.error("=== SHIPPING DISCOUNT DEBUG ===");
+  console.error("Configuration:", configuration);
+  console.error("Enabled:", enabled);
+  console.error("Customer is member:", customerIsMember);
+  console.error("Raw metafield value:", input?.discountNode?.metafield?.value);
+
   if (!customerIsMember || !enabled) {
+    console.error("Returning empty - customerIsMember:", customerIsMember, "enabled:", enabled);
     return EMPTY_DISCOUNT;
   }
 
@@ -41,6 +49,7 @@ export function run(input: RunInput): FunctionRunResult {
   }
 
   if (targets.length === 0) {
+    console.error("No delivery targets found, returning empty");
     return EMPTY_DISCOUNT;
   }
 
@@ -56,5 +65,6 @@ export function run(input: RunInput): FunctionRunResult {
     }
   ];
 
+  console.error("Returning free shipping discount with", targets.length, "targets");
   return { discounts };
 }

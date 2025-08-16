@@ -134,13 +134,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           products(first: $first) {
             edges {
               node {
-                id
-                title
+            id
+            title
                 variants(first: 3) {
-                  edges {
-                    node {
-                      id
-                      price
+              edges {
+                node {
+                  id
+                  price
                       compareAtPrice
                     }
                   }
@@ -247,14 +247,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const actionType = formData.get("action") as string;
 
   if (actionType === "createDiscount") {
-    console.log("=== CONFIGURING EXISTING DISCOUNTS ===");
-    console.log("Looking for existing PFC discounts to configure");
+    console.log("=== CREATING AND CONFIGURING PFC DISCOUNTS ===");
 
     try {
       // Get current settings to use for the discount
       const discountSettings = await (db as any).discountSettings.findUnique({
         where: { shop: session.shop },
       });
+
+      console.log(
+        "Current discount settings:",
+        JSON.stringify(discountSettings, null, 2),
+      );
 
       if (!discountSettings) {
         return json({
@@ -264,14 +268,186 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         } as ActionData);
       }
 
-      const productId: string | null = discountSettings.productDiscountId;
-      const shippingId: string | null = discountSettings.shippingDiscountId;
+      let productId: string | null = discountSettings.productDiscountId;
+      let shippingId: string | null = discountSettings.shippingDiscountId;
+
+      console.log("Initial IDs - Product:", productId, "Shipping:", shippingId);
+
+      // First, get all available functions to find the right IDs
+      const functionsResponse = await admin.graphql(`
+        query {
+          shopifyFunctions(first: 10) {
+            nodes {
+              id
+              title
+              apiType
+            }
+          }
+        }
+      `);
+
+      const functionsData = await functionsResponse.json();
+      const functions = functionsData.data?.shopifyFunctions?.nodes || [];
+
+      console.log("Available functions:", functions);
+
+      // Find the product discount function (order discount)
+      const productFunction = functions.find(
+        (f: any) =>
+          f.apiType === "order_discounts" ||
+          f.title?.includes("order") ||
+          f.title?.includes("product"),
+      );
+
+      // Find the shipping discount function
+      const shippingFunction = functions.find(
+        (f: any) =>
+          f.apiType === "shipping_discounts" || f.title?.includes("shipping"),
+      );
+
+      console.log("Product function:", productFunction);
+      console.log("Shipping function:", shippingFunction);
+
+      // Create product discount if needed and enabled
+      if (
+        !productId &&
+        discountSettings.isEnabled &&
+        discountSettings.discountPercent > 0 &&
+        productFunction
+      ) {
+        console.log("Creating product discount...");
+        const createProductResponse = await admin.graphql(
+          `
+          mutation discountAutomaticAppCreate($automaticAppDiscount: DiscountAutomaticAppInput!) {
+            discountAutomaticAppCreate(automaticAppDiscount: $automaticAppDiscount) {
+              automaticAppDiscount {
+                discountId
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+          {
+            variables: {
+              automaticAppDiscount: {
+                title: "PFC Member Product Discount",
+                functionId: productFunction.id,
+                startsAt: new Date().toISOString(),
+              },
+            },
+          },
+        );
+
+        const createProductData = await createProductResponse.json();
+        if (
+          createProductData.data?.discountAutomaticAppCreate?.userErrors
+            ?.length > 0
+        ) {
+          return json({
+            success: false,
+            error: `Failed to create product discount: ${createProductData.data.discountAutomaticAppCreate.userErrors[0].message}`,
+            action: "createDiscount",
+          } as ActionData);
+        }
+
+        productId =
+          createProductData.data?.discountAutomaticAppCreate
+            ?.automaticAppDiscount?.discountId;
+        console.log("Created product discount with ID:", productId);
+      }
+
+      // Create shipping discount if needed and enabled
+      if (
+        !shippingId &&
+        discountSettings.freeShippingEnabled &&
+        shippingFunction
+      ) {
+        console.log("Creating shipping discount...");
+        const createShippingResponse = await admin.graphql(
+          `
+          mutation discountAutomaticAppCreate($automaticAppDiscount: DiscountAutomaticAppInput!) {
+            discountAutomaticAppCreate(automaticAppDiscount: $automaticAppDiscount) {
+              automaticAppDiscount {
+                discountId
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+          {
+            variables: {
+              automaticAppDiscount: {
+                title: "PFC Member Free Shipping",
+                functionId: shippingFunction.id,
+                startsAt: new Date().toISOString(),
+              },
+            },
+          },
+        );
+
+        const createShippingData = await createShippingResponse.json();
+        if (
+          createShippingData.data?.discountAutomaticAppCreate?.userErrors
+            ?.length > 0
+        ) {
+          return json({
+            success: false,
+            error: `Failed to create shipping discount: ${createShippingData.data.discountAutomaticAppCreate.userErrors[0].message}`,
+            action: "createDiscount",
+          } as ActionData);
+        }
+
+        shippingId =
+          createShippingData.data?.discountAutomaticAppCreate
+            ?.automaticAppDiscount?.discountId;
+        console.log("Created shipping discount with ID:", shippingId);
+      }
+
+      // Save the IDs back to the database
+      if (productId || shippingId) {
+        await (db as any).discountSettings.update({
+          where: { shop: session.shop },
+          data: {
+            productDiscountId: productId,
+            shippingDiscountId: shippingId,
+          },
+        });
+      }
+
+      // Check if we have the functions but couldn't create discounts
+      if (
+        discountSettings.isEnabled &&
+        discountSettings.discountPercent > 0 &&
+        !productFunction
+      ) {
+        return json({
+          success: false,
+          error:
+            "Product discount function not found. Please deploy your app first with: shopify app deploy",
+          action: "createDiscount",
+        } as ActionData);
+      }
+
+      if (discountSettings.freeShippingEnabled && !shippingFunction) {
+        return json({
+          success: false,
+          error:
+            "Shipping discount function not found. Please deploy your app first with: shopify app deploy",
+          action: "createDiscount",
+        } as ActionData);
+      }
 
       if (!productId && !shippingId) {
         return json({
           success: false,
           error:
-            "No discount IDs set. Paste the DiscountAutomaticNode IDs into the settings and Save, then click Configure.",
+            "No discounts to create. Enable product discount or free shipping first.",
           action: "createDiscount",
         } as ActionData);
       }
@@ -288,11 +464,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       const metafields: MetafieldsSetInput[] = [];
 
+      console.log("Building metafields...");
+      console.log("Product enabled conditions:", {
+        productId: !!productId,
+        isEnabled: discountSettings.isEnabled,
+        discountPercent: discountSettings.discountPercent,
+      });
+      console.log("Shipping enabled conditions:", {
+        shippingId: !!shippingId,
+        freeShippingEnabled: discountSettings.freeShippingEnabled,
+      });
+
       if (
         productId &&
         discountSettings.isEnabled &&
         discountSettings.discountPercent > 0
       ) {
+        console.log("Adding product metafield for ID:", productId);
         metafields.push({
           ownerId: productId,
           namespace: "$app:pfc-member-order-discount",
@@ -305,6 +493,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       if (shippingId) {
+        console.log("Adding shipping metafield for ID:", shippingId);
         metafields.push({
           ownerId: shippingId,
           namespace: "$app:pfc-shipping-discount",
@@ -317,6 +506,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
       }
 
+      console.log(
+        "Final metafields to set:",
+        JSON.stringify(metafields, null, 2),
+      );
+
       if (metafields.length === 0) {
         return json({
           success: false,
@@ -324,6 +518,74 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             "Nothing to configure. Enable the discount and/or free shipping, then click Configure.",
           action: "createDiscount",
         } as ActionData);
+      }
+
+      // Before setting metafields, verify that all discount IDs actually exist
+      console.log("Verifying discount IDs exist...");
+      const idsToCheck = metafields.map((m) => m.ownerId).filter(Boolean);
+
+      if (idsToCheck.length > 0) {
+        const verifyResponse = await admin.graphql(
+          `
+          query($ids: [ID!]!) {
+            nodes(ids: $ids) {
+              id
+              __typename
+            }
+          }
+        `,
+          { variables: { ids: idsToCheck } },
+        );
+
+        const verifyData = await verifyResponse.json();
+        const existingNodes =
+          verifyData.data?.nodes?.filter((n: any) => n && n.id) || [];
+        const existingIds = existingNodes.map((n: any) => n.id);
+
+        console.log("IDs to check:", idsToCheck);
+        console.log("Existing IDs:", existingIds);
+
+        // Filter metafields to only include those with existing discount IDs
+        const validMetafields = metafields.filter(
+          (m) => m.ownerId && existingIds.includes(m.ownerId),
+        );
+        const invalidIds = idsToCheck.filter((id) => !existingIds.includes(id));
+
+        if (invalidIds.length > 0) {
+          console.log("Invalid discount IDs found:", invalidIds);
+
+          // Clean up invalid IDs from database
+          const updateData: any = {};
+          if (productId && invalidIds.includes(productId)) {
+            updateData.productDiscountId = null;
+          }
+          if (shippingId && invalidIds.includes(shippingId)) {
+            updateData.shippingDiscountId = null;
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            await db.discountSettings.update({
+              where: { shop: session.shop },
+              data: updateData,
+            });
+            console.log("Cleaned up invalid discount IDs from database");
+          }
+        }
+
+        if (validMetafields.length === 0) {
+          return json({
+            success: false,
+            error: `All discount IDs are invalid. The discounts may have been deleted. Invalid IDs: ${invalidIds.join(", ")}. Database has been cleaned up - try Configure again.`,
+            action: "createDiscount",
+          } as ActionData);
+        }
+
+        if (validMetafields.length < metafields.length) {
+          console.log(
+            `Configuring ${validMetafields.length} valid discounts, skipping ${metafields.length - validMetafields.length} invalid ones`,
+          );
+          metafields.splice(0, metafields.length, ...validMetafields);
+        }
       }
 
       const setResp = await admin.graphql(
@@ -378,10 +640,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const isEnabled = formData.get("isEnabled") === "true";
   const freeShippingEnabled = formData.get("freeShippingEnabled") === "true";
   const pfcMemberTag = formData.get("pfcMemberTag") as string;
-  const productDiscountId =
-    (formData.get("productDiscountId") as string) || null;
-  const shippingDiscountId =
-    (formData.get("shippingDiscountId") as string) || null;
 
   // Validate discount percentage
   if (isNaN(discountPercent) || discountPercent < 0 || discountPercent > 100) {
@@ -407,8 +665,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       isEnabled,
       freeShippingEnabled,
       pfcMemberTag: pfcMemberTag.trim(),
-      productDiscountId,
-      shippingDiscountId,
     },
     create: {
       shop: session.shop,
@@ -416,8 +672,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       isEnabled,
       freeShippingEnabled,
       pfcMemberTag: pfcMemberTag.trim(),
-      productDiscountId,
-      shippingDiscountId,
+      productDiscountId: null,
+      shippingDiscountId: null,
     },
   });
 
@@ -442,12 +698,6 @@ export default function DiscountSettings() {
     discountSettings.freeShippingEnabled || false,
   );
   const [selectedTag, setSelectedTag] = useState(discountSettings.pfcMemberTag);
-  const [productDiscountId, setProductDiscountId] = useState(
-    discountSettings.productDiscountId || "",
-  );
-  const [shippingDiscountId, setShippingDiscountId] = useState(
-    discountSettings.shippingDiscountId || "",
-  );
   const [showDebug, setShowDebug] = useState(false);
 
   const isLoading = fetcher.state === "submitting";
@@ -469,8 +719,6 @@ export default function DiscountSettings() {
     formData.append("isEnabled", enabled.toString());
     formData.append("freeShippingEnabled", freeShippingEnabled.toString());
     formData.append("pfcMemberTag", selectedTag);
-    formData.append("productDiscountId", productDiscountId.trim());
-    formData.append("shippingDiscountId", shippingDiscountId.trim());
     fetcher.submit(formData, { method: "POST" });
   };
 
@@ -520,22 +768,6 @@ export default function DiscountSettings() {
                     value={selectedTag}
                     onChange={setSelectedTag}
                     helpText="Enter the tag that identifies PFC members. This tag should be added by Appstle when customers purchase membership."
-                    autoComplete="off"
-                  />
-
-                  <TextField
-                    label="Product Discount ID (DiscountAutomaticNode gid)"
-                    value={productDiscountId}
-                    onChange={setProductDiscountId}
-                    helpText="Paste the gid returned by GraphiQL, e.g. gid://shopify/DiscountAutomaticNode/1528..."
-                    autoComplete="off"
-                  />
-
-                  <TextField
-                    label="Shipping Discount ID (DiscountAutomaticNode gid)"
-                    value={shippingDiscountId}
-                    onChange={setShippingDiscountId}
-                    helpText="Paste the gid returned by GraphiQL for the shipping discount"
                     autoComplete="off"
                   />
 
@@ -655,258 +887,70 @@ export default function DiscountSettings() {
 
                 <Collapsible open={showDebug} id="debug-info">
                   <BlockStack gap="200">
-                    <Text as="p" variant="bodyMd">
-                      <strong>Current Status:</strong> Dynamic pricing is{" "}
-                      {enabled ? "enabled" : "disabled"}
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      <strong>Discount Percentage:</strong> {percentage}%
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      <strong>PFC Member Tag:</strong> {selectedTag}
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      <strong>Products Found:</strong> {debugInfo.productCount}
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      <strong>Available Tags:</strong> {availableTags.length}{" "}
-                      tags found
-                    </Text>
-
-                    <Banner tone="warning">
-                      <p>
-                        <strong>⚠️ IMPORTANT:</strong> Dynamic pricing is
-                        currently backend-only. Your Shopify theme needs to be
-                        updated to display discounted prices for PFC members.
-                      </p>
-                    </Banner>
-
                     <Text as="h4" variant="headingSm">
-                      Testing Endpoints
+                      Discount Debugging
                     </Text>
                     <Text as="p" variant="bodyMd">
-                      <strong>Test Customer:</strong>{" "}
-                      <code>
-                        /api/test-customer?customerId=YOUR_CUSTOMER_ID
-                      </code>
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      <strong>Test Discount:</strong>{" "}
-                      <code>
-                        /api/customer-discount?customerId=YOUR_CUSTOMER_ID&productId=PRODUCT_ID&variantId=VARIANT_ID
-                      </code>
-                    </Text>
-
-                    <Text as="h4" variant="headingSm">
-                      Quick Test
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      Test your customer detection with your customer ID:
+                      Use this button to diagnose issues with discount
+                      configuration:
                     </Text>
 
                     <Button
                       variant="primary"
                       onClick={async () => {
                         try {
-                          const response = await fetch(
-                            "/api/test-customer?customerId=9304638554387",
-                          );
+                          const response = await fetch("/api/debug-discounts");
                           const data = await response.json();
-                          console.log("Test customer response:", data);
+                          console.log("Debug discounts data:", data);
 
                           if (data.error) {
-                            if (
-                              data.error ===
-                              "Protected customer data access required"
-                            ) {
-                              const message = `🔒 Protected Customer Data Access Required
-
-${data.message}
-
-📋 To fix this:
-${data.solution.step1}
-${data.solution.step2}
-${data.solution.step3}
-${data.solution.step4}
-${data.solution.step5}
-${data.solution.step6}
-${data.solution.step7}
-
-📖 Documentation: ${data.documentation}
-
-🔍 For testing now:
-${data.fallback.message}
-${data.fallback.instructions.join("\n")}
-
-Configured PFC tag: ${data.fallback.configuredTag}
-Discount enabled: ${data.fallback.discountSettings.isEnabled ? "Yes" : "No"}
-Discount percent: ${data.fallback.discountSettings.discountPercent}%`;
-                              alert(message);
-                            } else {
-                              alert(
-                                `Error: ${data.error}\n\n${data.message || ""}`,
-                              );
-                            }
-                          } else {
                             alert(
-                              `✅ SUCCESS! Customer Test Results:
-
-👤 Customer: ${data.customer?.firstName} ${data.customer?.lastName}
-📧 Email: ${data.customer?.email}
-🏷️ PFC Member: ${data.isPfcMember ? "✅ YES" : "❌ NO"}
-🏷️ Tags: ${data.allTags?.join(", ") || "None"}
-🎯 Configured Tag: ${data.configuredTag}
-💰 Discount Enabled: ${data.discountSettings.isEnabled ? "✅ Yes" : "❌ No"}
-💸 Discount Percent: ${data.discountSettings.discountPercent}%
-
-🎉 This customer ${data.isPfcMember ? "WILL" : "WILL NOT"} receive the PFC discount!`,
+                              `❌ Debug Error: ${data.error}\n\nCheck browser console for details.`,
                             );
+                            return;
                           }
+
+                          const summary = `🔍 DISCOUNT DEBUG INFO
+                            
+📊 Database Settings:
+• Shop: ${data.shop || "Unknown"}
+• Discount %: ${data.databaseSettings?.discountPercent || "None"}%
+• Product ID: ${data.databaseSettings?.productDiscountId || "Not set"}
+• Shipping ID: ${data.databaseSettings?.shippingDiscountId || "Not set"}
+• Enabled: ${data.databaseSettings?.isEnabled ? "Yes" : "No"}
+• Free Shipping: ${data.databaseSettings?.freeShippingEnabled ? "Yes" : "No"}
+• Member Tag: ${data.databaseSettings?.pfcMemberTag || "Not set"}
+
+🎯 Available Functions:
+${data.availableFunctions?.map((f: any) => `• ${f.title || f.id} (${f.apiType})`).join("\n") || "None found"}
+
+💰 Existing Discounts:
+${
+  data.existingDiscounts
+    ?.map((edge: any) => {
+      const discount = edge.node?.discount;
+      return `• ${discount?.title || "Untitled"} - ${discount?.status || "Unknown"} (${edge.node?.id})`;
+    })
+    .join("\n") || "None found"
+}
+
+Check browser console for full details.`;
+
+                          alert(summary);
                         } catch (error) {
-                          console.error("Test failed:", error);
-                          alert("Test failed. Check console for details.");
+                          console.error("Debug failed:", error);
+                          alert(
+                            `Debug failed: ${error instanceof Error ? error.message : String(error)}\n\nCheck browser console for details.`,
+                          );
                         }
                       }}
                     >
-                      Test My Customer (ID: 9304638554387)
+                      🔍 Debug Discounts
                     </Button>
 
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      <strong>Note:</strong> This app may require{" "}
-                      <a
-                        href="https://shopify.dev/docs/apps/launch/protected-customer-data"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        protected customer data access
-                      </a>{" "}
-                      to read customer information. If you see an error, follow
-                      the instructions to request access.
-                    </Text>
-
-                    <Banner tone="warning">
-                      <p>
-                        <strong>🚨 Important:</strong> This app can currently{" "}
-                        <strong>detect</strong> PFC members, but{" "}
-                        <strong>cannot apply discounts</strong> at checkout yet.
-                      </p>
-                      <p>
-                        To actually apply discounts, you need to implement{" "}
-                        <strong>Shopify App Extensions</strong>:
-                      </p>
-                      <ul>
-                        <li>
-                          <strong>✅ Cart Transform Function:</strong> Created -
-                          applies discounts at checkout
-                        </li>
-                        <li>
-                          <strong>⏳ Storefront App Extension:</strong> Shows
-                          discounted prices on product pages
-                        </li>
-                        <li>
-                          <strong>⏳ Checkout UI Extension:</strong> Customizes
-                          the checkout experience
-                        </li>
-                      </ul>
-                      <p>
-                        <strong>Next Steps:</strong>
-                      </p>
-                      <ol>
-                        <li>
-                          Deploy the cart transform function:{" "}
-                          <code>shopify app deploy</code>
-                        </li>
-                        <li>Enable the function in your Shopify admin</li>
-                        <li>Test with a PFC member customer</li>
-                      </ol>
-                    </Banner>
-
-                    <Text as="h4" variant="headingSm">
-                      How to Find Your Customer ID
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      1. Go to your Shopify admin:{" "}
-                      <strong>shop-etee.myshopify.com/admin</strong>
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      2. Navigate to <strong>Customers</strong> in the left
-                      sidebar
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      3. Find your customer account (the one tagged with
-                      PFC_member)
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      4. Click on your customer name
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      5. Look at the URL - it will show:{" "}
-                      <code>
-                        https://shop-etee.myshopify.com/admin/customers/CUSTOMER_ID
-                      </code>
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      6. Copy the <strong>CUSTOMER_ID</strong> number from the
-                      URL
-                    </Text>
-
-                    <Text as="h4" variant="headingSm">
-                      Sample Products (for testing)
-                    </Text>
-                    {debugInfo.sampleProducts.slice(0, 2).map((product) => (
-                      <div key={product.id}>
-                        <Text as="p" variant="bodyMd">
-                          <strong>{product.title}</strong> (ID:{" "}
-                          {product.id.replace("gid://shopify/Product/", "")})
-                        </Text>
-                        {product.variants.slice(0, 1).map((variant) => (
-                          <Text
-                            as="p"
-                            variant="bodyMd"
-                            tone="subdued"
-                            key={variant.id}
-                          >
-                            • Variant:{" "}
-                            {variant.id.replace(
-                              "gid://shopify/ProductVariant/",
-                              "",
-                            )}{" "}
-                            - ${variant.price}
-                            {variant.compareAtPrice &&
-                              ` (Compare: $${variant.compareAtPrice})`}
-                          </Text>
-                        ))}
-                      </div>
-                    ))}
-
-                    <Text as="h4" variant="headingSm">
-                      Sample Customers (for testing)
-                    </Text>
-                    {debugInfo.sampleCustomers.slice(0, 3).map((customer) => (
-                      <div key={customer.id}>
-                        <Text as="p" variant="bodyMd">
-                          <strong>
-                            {customer.firstName} {customer.lastName}
-                          </strong>{" "}
-                          (ID: {customer.id}) - {customer.email}
-                        </Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Tags:{" "}
-                          {customer.tags.length > 0
-                            ? customer.tags.join(", ")
-                            : "None"}
-                          {customer.tags.some(
-                            (tag: string) =>
-                              tag.trim().toLowerCase() ===
-                              selectedTag.trim().toLowerCase(),
-                          ) && " ✅ PFC Member"}
-                        </Text>
-                      </div>
-                    ))}
-
-                    <Text as="p" variant="bodyMd" tone="subdued">
-                      Dynamic pricing calculated in real-time for PFC members
-                      only. Original prices remain unchanged in Shopify.
+                      This will show your current discount configuration,
+                      available functions, and any errors.
                     </Text>
                   </BlockStack>
                 </Collapsible>
