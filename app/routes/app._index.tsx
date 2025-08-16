@@ -246,7 +246,64 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const actionType = formData.get("action") as string;
 
-  if (actionType === "createDiscount") {
+  if (actionType === "saveAndConfigure") {
+    // First save the settings
+    const discountPercent = parseFloat(
+      formData.get("discountPercent") as string,
+    );
+    const isEnabled = formData.get("isEnabled") === "true";
+    const freeShippingEnabled = formData.get("freeShippingEnabled") === "true";
+    const pfcMemberTag = formData.get("pfcMemberTag") as string;
+
+    // Validate discount percentage
+    if (
+      isNaN(discountPercent) ||
+      discountPercent < 0 ||
+      discountPercent > 100
+    ) {
+      return json({
+        error: "Discount percentage must be between 0 and 100",
+        success: false,
+      } as ActionData);
+    }
+
+    // Validate tag
+    if (!pfcMemberTag || pfcMemberTag.trim() === "") {
+      return json({
+        error: "PFC member tag is required",
+        success: false,
+      } as ActionData);
+    }
+
+    // Update settings first
+    const updatedSettings = await (db as any).discountSettings.upsert({
+      where: { shop: session.shop },
+      update: {
+        discountPercent,
+        isEnabled,
+        freeShippingEnabled,
+        pfcMemberTag: pfcMemberTag.trim(),
+      },
+      create: {
+        shop: session.shop,
+        discountPercent,
+        isEnabled,
+        freeShippingEnabled,
+        pfcMemberTag: pfcMemberTag.trim(),
+        productDiscountId: null,
+        shippingDiscountId: null,
+      },
+    });
+
+    // Now automatically configure the discounts
+    console.log("=== SAVING SETTINGS AND CONFIGURING PFC DISCOUNTS ===");
+
+    // Set the formData to trigger createDiscount logic
+    formData.set("action", "createDiscount");
+    // Fall through to the createDiscount logic below by not returning here
+  }
+
+  if (actionType === "createDiscount" || actionType === "saveAndConfigure") {
     console.log("=== CREATING AND CONFIGURING PFC DISCOUNTS ===");
 
     try {
@@ -393,7 +450,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 startsAt: new Date().toISOString(),
                 combinesWith: {
                   orderDiscounts: true,
-                  productDiscounts: true, 
+                  productDiscounts: true,
                   shippingDiscounts: false,
                 },
               },
@@ -622,7 +679,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       return json({
         success: true,
-        message: `Configured PFC discounts successfully${productId ? " (product)" : ""}${shippingId ? " (shipping)" : ""}.`,
+        message:
+          actionType === "saveAndConfigure"
+            ? `Settings saved and PFC discounts configured successfully${productId ? " (product)" : ""}${shippingId ? " (shipping)" : ""}.`
+            : `Configured PFC discounts successfully${productId ? " (product)" : ""}${shippingId ? " (shipping)" : ""}.`,
         action: "createDiscount",
       } as ActionData);
     } catch (error) {
@@ -645,52 +705,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } as ActionData);
   }
 
-  // Default action: update settings
-  const discountPercent = parseFloat(formData.get("discountPercent") as string);
-  const isEnabled = formData.get("isEnabled") === "true";
-  const freeShippingEnabled = formData.get("freeShippingEnabled") === "true";
-  const pfcMemberTag = formData.get("pfcMemberTag") as string;
-
-  // Validate discount percentage
-  if (isNaN(discountPercent) || discountPercent < 0 || discountPercent > 100) {
-    return json({
-      error: "Discount percentage must be between 0 and 100",
-      success: false,
-    } as ActionData);
-  }
-
-  // Validate tag
-  if (!pfcMemberTag || pfcMemberTag.trim() === "") {
-    return json({
-      error: "PFC member tag is required",
-      success: false,
-    } as ActionData);
-  }
-
-  // Update settings
-  const updatedSettings = await (db as any).discountSettings.upsert({
-    where: { shop: session.shop },
-    update: {
-      discountPercent,
-      isEnabled,
-      freeShippingEnabled,
-      pfcMemberTag: pfcMemberTag.trim(),
-    },
-    create: {
-      shop: session.shop,
-      discountPercent,
-      isEnabled,
-      freeShippingEnabled,
-      pfcMemberTag: pfcMemberTag.trim(),
-      productDiscountId: null,
-      shippingDiscountId: null,
-    },
-  });
-
+  // Fallback - redirect to use the Save Settings button
   return json({
-    success: true,
-    discountSettings: updatedSettings,
-    message: `Discount settings updated successfully! ${isEnabled ? "Dynamic pricing is now active for PFC members." : "Dynamic pricing is disabled."}`,
+    success: false,
+    error:
+      "Please use the Save Settings button to save and configure your discounts.",
   } as ActionData);
 };
 
@@ -712,9 +731,6 @@ export default function DiscountSettings() {
   const [debugData, setDebugData] = useState<any>(null);
 
   const isLoading = fetcher.state === "submitting";
-  const isCreatingDiscount =
-    fetcher.state === "submitting" &&
-    fetcher.formData?.get("action") === "createDiscount";
   const hasError = fetcher.data?.error;
   const hasSuccess = fetcher.data?.success;
 
@@ -730,12 +746,7 @@ export default function DiscountSettings() {
     formData.append("isEnabled", enabled.toString());
     formData.append("freeShippingEnabled", freeShippingEnabled.toString());
     formData.append("pfcMemberTag", selectedTag);
-    fetcher.submit(formData, { method: "POST" });
-  };
-
-  const handleCreateDiscount = () => {
-    const formData = new FormData();
-    formData.append("action", "createDiscount");
+    formData.append("action", "saveAndConfigure"); // New action that does both
     fetcher.submit(formData, { method: "POST" });
   };
 
@@ -778,7 +789,7 @@ export default function DiscountSettings() {
                     label="PFC Member Tag"
                     value={selectedTag}
                     onChange={setSelectedTag}
-                    helpText="Enter the tag that identifies PFC members. This tag should be added by Appstle when customers purchase membership."
+                    helpText="Enter the tag that identifies PFC members. Make sure to tag your PFC members with this exact tag for discounts to apply."
                     autoComplete="off"
                   />
 
@@ -789,17 +800,6 @@ export default function DiscountSettings() {
                       </p>
                     </Banner>
                   )}
-
-                  {availableTags.length === 1 &&
-                    availableTags[0] === discountSettings.pfcMemberTag && (
-                      <Banner tone="info">
-                        <p>
-                          Could not fetch customer tags from your store. You can
-                          manually enter any tag name above, or contact support
-                          to grant additional permissions.
-                        </p>
-                      </Banner>
-                    )}
 
                   <Checkbox
                     label="Enable dynamic pricing"
@@ -816,67 +816,13 @@ export default function DiscountSettings() {
                   />
                 </BlockStack>
 
-                <InlineStack gap="300">
-                  <Button
-                    variant="primary"
-                    onClick={handleSaveSettings}
-                    loading={isLoading}
-                  >
-                    Save Settings
-                  </Button>
-                  <Button
-                    onClick={handleCreateDiscount}
-                    loading={isCreatingDiscount}
-                  >
-                    {enabled &&
-                    percentage &&
-                    parseFloat(percentage) > 0 &&
-                    freeShippingEnabled
-                      ? "Configure PFC Discounts (% + Free Shipping)"
-                      : enabled && percentage && parseFloat(percentage) > 0
-                        ? "Configure PFC Product Discount"
-                        : freeShippingEnabled
-                          ? "Configure PFC Free Shipping"
-                          : "Configure PFC Discounts"}
-                  </Button>
-                </InlineStack>
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h3" variant="headingMd">
-                  How Dynamic Pricing Works
-                </Text>
-
-                <BlockStack gap="200">
-                  <Text as="p" variant="bodyMd">
-                    • Set your discount percentage above
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    • Select the tag that identifies PFC members
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    • Toggle to enable/disable dynamic pricing
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    • All discounts calculated from compare-at-price
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    • PFC members see discounted prices dynamically
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    • Non-members see regular retail prices
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    • Original prices stay unchanged in Shopify
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    • Pricing calculated in real-time via API
-                  </Text>
-                </BlockStack>
+                <Button
+                  variant="primary"
+                  onClick={handleSaveSettings}
+                  loading={isLoading}
+                >
+                  Save Settings
+                </Button>
               </BlockStack>
             </Card>
           </Layout.Section>
@@ -922,8 +868,8 @@ export default function DiscountSettings() {
                           setDebugData(data);
                         } catch (error) {
                           console.error("Debug failed:", error);
-                          setDebugData({ 
-                            error: `Debug failed: ${error instanceof Error ? error.message : String(error)}` 
+                          setDebugData({
+                            error: `Debug failed: ${error instanceof Error ? error.message : String(error)}`,
                           });
                         }
                       }}
@@ -939,13 +885,24 @@ export default function DiscountSettings() {
                     {debugData && (
                       <Card>
                         <BlockStack gap="200">
-                          <Text as="h5" variant="headingXs">Debug Results:</Text>
+                          <Text as="h5" variant="headingXs">
+                            Debug Results:
+                          </Text>
                           {debugData.error ? (
                             <Banner tone="critical">
                               <p>{debugData.error}</p>
                             </Banner>
                           ) : (
-                            <div style={{ fontFamily: 'monospace', fontSize: '12px', background: '#f6f6f7', padding: '10px', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                            <div
+                              style={{
+                                fontFamily: "monospace",
+                                fontSize: "12px",
+                                background: "#f6f6f7",
+                                padding: "10px",
+                                borderRadius: "4px",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
                               {JSON.stringify(debugData, null, 2)}
                             </div>
                           )}
