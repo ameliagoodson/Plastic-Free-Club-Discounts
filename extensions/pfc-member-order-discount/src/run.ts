@@ -23,24 +23,35 @@ export function run(input: RunInput): FunctionRunResult {
     input?.discountNode?.metafield?.value ?? "{}"
   );
 
+  // Use the configured percentage, no hardcoded default
   const percent = Math.max(
     0,
-    Math.min(100, Number(configuration.percentage ?? 10))
+    Math.min(100, Number(configuration.percentage ?? 0))
   );
   
-  const freeShipping = Boolean(configuration.freeShipping ?? true); // Default to true
+  const freeShipping = Boolean(configuration.freeShipping ?? false); // Default to false
 
   const customerIsMember = Boolean(
     input.cart.buyerIdentity?.customer?.hasAnyTag
   );
 
   // Debug logging (these will show in function logs)
+  console.error("=== PRODUCT DISCOUNT DEBUG ===");
   console.error("DEBUG - Configuration:", JSON.stringify(configuration));
-  console.error("DEBUG - Percent:", percent);
+  console.error("DEBUG - Configured percent:", percent);
   console.error("DEBUG - Free shipping:", freeShipping);
   console.error("DEBUG - Customer is member:", customerIsMember);
+  console.error("DEBUG - Raw metafield value:", input?.discountNode?.metafield?.value);
 
-  if (!customerIsMember) return EMPTY;
+  if (!customerIsMember) {
+    console.error("DEBUG - Customer is not a member, returning empty");
+    return EMPTY;
+  }
+
+  if (percent <= 0) {
+    console.error("DEBUG - Percentage is 0 or negative, returning empty");
+    return EMPTY;
+  }
 
   const discounts: Discount[] = [];
 

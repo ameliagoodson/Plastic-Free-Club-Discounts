@@ -21,7 +21,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       return json({
         isEnabled: false,
         discountPercent: 0,
-        pfcMemberTag: "plastic-free-club",
+        pfcMemberTag: "PFC_member",
       });
     }
 

@@ -78,7 +78,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           discountPercent: 0,
           isEnabled: false,
           freeShippingEnabled: false,
-          pfcMemberTag: "plastic-free-club",
+          pfcMemberTag: "PFC_member",
           productDiscountId: null,
           shippingDiscountId: null,
         },
@@ -225,7 +225,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         discountPercent: 0,
         isEnabled: false,
         freeShippingEnabled: false,
-        pfcMemberTag: "plastic-free-club",
+        pfcMemberTag: "PFC_member",
         productDiscountId: null,
         shippingDiscountId: null,
         createdAt: new Date(),
@@ -236,7 +236,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         sampleProducts: [],
         sampleCustomers: [],
       },
-      availableTags: ["plastic-free-club"],
+      availableTags: ["PFC_member"],
     });
   }
 };
@@ -336,6 +336,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 title: "PFC Member Product Discount",
                 functionId: productFunction.id,
                 startsAt: new Date().toISOString(),
+                combinesWith: {
+                  orderDiscounts: false,
+                  productDiscounts: false,
+                  shippingDiscounts: true,
+                },
               },
             },
           },
@@ -386,6 +391,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 title: "PFC Member Free Shipping",
                 functionId: shippingFunction.id,
                 startsAt: new Date().toISOString(),
+                combinesWith: {
+                  orderDiscounts: true,
+                  productDiscounts: true, 
+                  shippingDiscounts: false,
+                },
               },
             },
           },
@@ -699,6 +709,7 @@ export default function DiscountSettings() {
   );
   const [selectedTag, setSelectedTag] = useState(discountSettings.pfcMemberTag);
   const [showDebug, setShowDebug] = useState(false);
+  const [debugData, setDebugData] = useState<any>(null);
 
   const isLoading = fetcher.state === "submitting";
   const isCreatingDiscount =
@@ -904,44 +915,16 @@ export default function DiscountSettings() {
                           console.log("Debug discounts data:", data);
 
                           if (data.error) {
-                            alert(
-                              `❌ Debug Error: ${data.error}\n\nCheck browser console for details.`,
-                            );
+                            setDebugData({ error: data.error });
                             return;
                           }
 
-                          const summary = `🔍 DISCOUNT DEBUG INFO
-                            
-📊 Database Settings:
-• Shop: ${data.shop || "Unknown"}
-• Discount %: ${data.databaseSettings?.discountPercent || "None"}%
-• Product ID: ${data.databaseSettings?.productDiscountId || "Not set"}
-• Shipping ID: ${data.databaseSettings?.shippingDiscountId || "Not set"}
-• Enabled: ${data.databaseSettings?.isEnabled ? "Yes" : "No"}
-• Free Shipping: ${data.databaseSettings?.freeShippingEnabled ? "Yes" : "No"}
-• Member Tag: ${data.databaseSettings?.pfcMemberTag || "Not set"}
-
-🎯 Available Functions:
-${data.availableFunctions?.map((f: any) => `• ${f.title || f.id} (${f.apiType})`).join("\n") || "None found"}
-
-💰 Existing Discounts:
-${
-  data.existingDiscounts
-    ?.map((edge: any) => {
-      const discount = edge.node?.discount;
-      return `• ${discount?.title || "Untitled"} - ${discount?.status || "Unknown"} (${edge.node?.id})`;
-    })
-    .join("\n") || "None found"
-}
-
-Check browser console for full details.`;
-
-                          alert(summary);
+                          setDebugData(data);
                         } catch (error) {
                           console.error("Debug failed:", error);
-                          alert(
-                            `Debug failed: ${error instanceof Error ? error.message : String(error)}\n\nCheck browser console for details.`,
-                          );
+                          setDebugData({ 
+                            error: `Debug failed: ${error instanceof Error ? error.message : String(error)}` 
+                          });
                         }
                       }}
                     >
@@ -952,6 +935,23 @@ Check browser console for full details.`;
                       This will show your current discount configuration,
                       available functions, and any errors.
                     </Text>
+
+                    {debugData && (
+                      <Card>
+                        <BlockStack gap="200">
+                          <Text as="h5" variant="headingXs">Debug Results:</Text>
+                          {debugData.error ? (
+                            <Banner tone="critical">
+                              <p>{debugData.error}</p>
+                            </Banner>
+                          ) : (
+                            <div style={{ fontFamily: 'monospace', fontSize: '12px', background: '#f6f6f7', padding: '10px', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                              {JSON.stringify(debugData, null, 2)}
+                            </div>
+                          )}
+                        </BlockStack>
+                      </Card>
+                    )}
                   </BlockStack>
                 </Collapsible>
               </BlockStack>
