@@ -276,7 +276,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Update settings first
-    const updatedSettings = await (db as any).discountSettings.upsert({
+    await (db as any).discountSettings.upsert({
       where: { shop: session.shop },
       update: {
         discountPercent,

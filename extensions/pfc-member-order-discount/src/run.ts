@@ -55,38 +55,62 @@ export function run(input: RunInput): FunctionRunResult {
 
   const discounts: Discount[] = [];
 
-  // Add product discounts (if percentage > 0)
-  if (percent > 0) {
-    for (const line of input.cart.lines) {
-      const regular = Number(line.cost.amountPerQuantity.amount);
-      const compareAt = line.cost.compareAtAmountPerQuantity?.amount
-        ? Number(line.cost.compareAtAmountPerQuantity.amount)
-        : undefined;
+  // Add product discounts - calculate fixed amount based on compare-at-price
+  for (const line of input.cart.lines) {
+    const regular = Number(line.cost.amountPerQuantity.amount);
+    const compareAt = line.cost.compareAtAmountPerQuantity?.amount
+      ? Number(line.cost.compareAtAmountPerQuantity.amount)
+      : undefined;
 
-      const base = compareAt && compareAt > 0 ? compareAt : regular;
-      if (!base || base <= 0) continue;
+    console.error("DEBUG - Processing line - regularPrice:", regular);
+    console.error("DEBUG - Processing line - compareAtPrice:", compareAt);
+    console.error("DEBUG - Processing line - hasCompareAt:", !!compareAt && compareAt > 0);
+    console.error("DEBUG - Processing line - merchandiseId:", (line.merchandise as any).id);
 
-      // Shopify expects percentage values from 0-100, not 0-1 decimal format
-      const value = percent;
-
-      console.error("DEBUG - Line amount:", regular);
-      console.error("DEBUG - Compare at:", compareAt);
-      console.error("DEBUG - Base price:", base);
-      console.error("DEBUG - Product discount percentage:", value);
-
-      discounts.push({
-        message: "PFC Member Discount",
-        targets: [
-          {
-            productVariant: {
-              id: (line.merchandise as any).id,
-              quantity: line.quantity,
-            },
-          } as Target,
-        ],
-        value: { percentage: { value } },
-      });
+    // Only apply discount if there's a compare-at-price
+    if (!compareAt || compareAt <= 0) {
+      console.error("DEBUG - Skipping line - no compare-at-price");
+      continue;
     }
+
+    // Calculate target price from compare-at-price
+    const discountDecimal = percent / 100; // Convert percentage to decimal
+    const targetPrice = compareAt * (1 - discountDecimal);
+
+    console.error("DEBUG - Calculation - compareAtPrice:", compareAt);
+    console.error("DEBUG - Calculation - discountPercent:", percent);
+    console.error("DEBUG - Calculation - targetPrice:", targetPrice);
+    console.error("DEBUG - Calculation - currentPrice:", regular);
+
+    // Calculate the discount amount (how much to reduce the current price)
+    // Shopify discounts can only REDUCE prices, never increase them
+    const discountAmount = regular - targetPrice;
+
+    console.error("DEBUG - Calculation - discountAmount:", discountAmount);
+
+    // Only apply discount if it would reduce the price (best price wins automatically)
+    if (discountAmount <= 0) {
+      console.error("DEBUG - Skipping line - PFC price ($" + targetPrice + ") is not better than current price ($" + regular + ")");
+      console.error("DEBUG - Note: Best price wins automatically - Shopify discounts can only reduce prices");
+      continue;
+    }
+
+    discounts.push({
+      message: `PFC Member Discount (${percent}% off compare-at-price)`,
+      targets: [
+        {
+          productVariant: {
+            id: (line.merchandise as any).id,
+            quantity: line.quantity,
+          },
+        } as Target,
+      ],
+      value: { 
+        fixedAmount: { 
+          amount: discountAmount.toFixed(2) 
+        } 
+      },
+    });
   }
 
   // Note: For true free shipping, we'll need to create a separate shipping discount function
