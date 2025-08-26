@@ -24,9 +24,11 @@ export function run(input: RunInput): FunctionRunResult {
   );
 
   // Use the configured percentage, no hardcoded default
-  const percent = Math.max(
+  // Handle invalid/NaN percentages by defaulting to 0
+  const percentNumber = Number(configuration.percentage ?? 0);
+  const percent = isNaN(percentNumber) ? 0 : Math.max(
     0,
-    Math.min(100, Number(configuration.percentage ?? 0))
+    Math.min(100, percentNumber)
   );
   
   const freeShipping = Boolean(configuration.freeShipping ?? false); // Default to false
@@ -84,16 +86,23 @@ export function run(input: RunInput): FunctionRunResult {
 
     // Calculate the discount amount (how much to reduce the current price)
     // Shopify discounts can only REDUCE prices, never increase them
-    const discountAmount = regular - targetPrice;
+    const discountAmountPerUnit = regular - targetPrice;
 
-    console.error("DEBUG - Calculation - discountAmount:", discountAmount);
+    console.error("DEBUG - Calculation - discountAmountPerUnit:", discountAmountPerUnit);
 
     // Only apply discount if it would reduce the price (best price wins automatically)
-    if (discountAmount <= 0) {
+    if (discountAmountPerUnit <= 0) {
       console.error("DEBUG - Skipping line - PFC price ($" + targetPrice + ") is not better than current price ($" + regular + ")");
       console.error("DEBUG - Note: Best price wins automatically - Shopify discounts can only reduce prices");
       continue;
     }
+
+    // For multiple quantities, we need to multiply the per-unit discount by the quantity
+    // This ensures that if you have 2 items with $3.40 discount each, you get $6.80 total
+    const totalDiscountAmount = discountAmountPerUnit * line.quantity;
+
+    console.error("DEBUG - Calculation - quantity:", line.quantity);
+    console.error("DEBUG - Calculation - totalDiscountAmount:", totalDiscountAmount);
 
     discounts.push({
       message: `PFC Member Discount (${percent}% off compare-at-price)`,
@@ -107,7 +116,7 @@ export function run(input: RunInput): FunctionRunResult {
       ],
       value: { 
         fixedAmount: { 
-          amount: discountAmount.toFixed(2) 
+          amount: totalDiscountAmount.toFixed(2) 
         } 
       },
     });
@@ -128,7 +137,8 @@ export function run(input: RunInput): FunctionRunResult {
   discounts.forEach((discount, index) => {
     const amount = parseFloat(discount.value.fixedAmount?.amount || "0");
     totalDiscount += amount;
-    console.error(`DEBUG - Discount ${index + 1}: $${amount} for ${discount.targets[0]?.productVariant?.id}`);
+    const quantity = discount.targets[0]?.productVariant?.quantity || 1;
+    console.error(`DEBUG - Discount ${index + 1}: $${amount} total (for ${quantity} units) for ${discount.targets[0]?.productVariant?.id}`);
   });
   console.error("DEBUG - Final result - total expected discount: $" + totalDiscount.toFixed(2));
   

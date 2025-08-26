@@ -62,7 +62,7 @@ describe('PFC Member Order Discount Function', () => {
       const line = createCartLine({
         id: 'gid://shopify/ProductVariant/123',
         quantity: 1,
-        currentPrice: '20.00', // Current price
+        currentPrice: '25.00', // Current price = compare-at-price so discount applies
         compareAtPrice: '25.00' // Compare-at price
       });
 
@@ -82,7 +82,7 @@ describe('PFC Member Order Discount Function', () => {
         }],
         value: {
           fixedAmount: {
-            amount: '2.50' // $20 - ($25 * 0.9) = $20 - $22.50 = -$2.50, but we want positive discount amount
+            amount: '2.50' // $25 - ($25 * 0.9) = $25 - $22.50 = $2.50 discount
           }
         }
       });
@@ -190,11 +190,10 @@ describe('PFC Member Order Discount Function', () => {
       expect(result.discounts[0].targets[0].productVariant?.quantity).toBe(2);
       
       // Each moisturizer: $34 - $30.60 = $3.40 discount per unit
-      // For quantity 2: discount should apply to both units
-      // Shopify handles per-unit discounts automatically with quantity
-      expect(result.discounts[0].value.fixedAmount?.amount).toBe('3.40'); // Per unit amount
+      // For quantity 2: discount should apply to both units = $3.40 × 2 = $6.80 total
+      expect(result.discounts[0].value.fixedAmount?.amount).toBe('6.80'); // Total amount for all units
       
-      // Note: If this is only applying once instead of twice, that's your quantity bug!
+      // Note: This test validates that quantity stacking works correctly!
     });
 
     it('should calculate discount amount correctly', () => {
