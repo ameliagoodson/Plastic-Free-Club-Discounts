@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Deploy Shopify Functions",
+      "type": "shell",
+      "command": "shopify app deploy --force",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "detail": "Deploy Shopify functions after changes"
+    },
+    {
+      "label": "Start Tests in Watch Mode",
+      "type": "shell",
+      "command": "npm run test:watch",
+      "group": "test",
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

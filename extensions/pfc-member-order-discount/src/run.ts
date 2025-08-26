@@ -122,6 +122,16 @@ export function run(input: RunInput): FunctionRunResult {
     // TODO: Implement separate shipping discount function for free shipping
   }
 
+  console.error("DEBUG - Final result - discounts count:", discounts.length);
+  console.error("DEBUG - Final result - total discount amounts:");
+  let totalDiscount = 0;
+  discounts.forEach((discount, index) => {
+    const amount = parseFloat(discount.value.fixedAmount?.amount || "0");
+    totalDiscount += amount;
+    console.error(`DEBUG - Discount ${index + 1}: $${amount} for ${discount.targets[0]?.productVariant?.id}`);
+  });
+  console.error("DEBUG - Final result - total expected discount: $" + totalDiscount.toFixed(2));
+  
   return {
     discountApplicationStrategy: DiscountApplicationStrategy.Maximum,
     discounts,

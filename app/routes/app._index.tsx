@@ -330,6 +330,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       console.log("Initial IDs - Product:", productId, "Shipping:", shippingId);
 
+      // Delete existing product discount to recreate with new combining rules
+      if (productId) {
+        console.log("Deleting existing product discount to recreate with new settings...");
+        try {
+          await admin.graphql(`
+            mutation discountAutomaticDelete($id: ID!) {
+              discountAutomaticDelete(id: $id) {
+                deletedAutomaticDiscountId
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `, {
+            variables: { id: productId }
+          });
+          console.log("Successfully deleted old product discount");
+          productId = null; // Reset so we create a new one
+        } catch (error) {
+          console.log("Could not delete old product discount (may not exist):", error);
+          productId = null; // Reset anyway
+        }
+      }
+
       // First, get all available functions to find the right IDs
       const functionsResponse = await admin.graphql(`
         query {
@@ -365,7 +390,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("Product function:", productFunction);
       console.log("Shipping function:", shippingFunction);
 
-      // Create product discount if needed and enabled
+      // Create product discount (always create since we deleted the old one above)
       if (
         !productId &&
         discountSettings.isEnabled &&
@@ -395,7 +420,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 startsAt: new Date().toISOString(),
                 combinesWith: {
                   orderDiscounts: false,
-                  productDiscounts: false,
+                  productDiscounts: true, // Allow combining with product discounts (itself)
                   shippingDiscounts: true,
                 },
               },
