@@ -11,7 +11,6 @@ const EMPTY_DISCOUNT: FunctionRunResult = {
 
 type Configuration = {
   enabled?: boolean;
-  pfcMemberTag?: string;
 };
 
 export function run(input: RunInput): FunctionRunResult {
@@ -29,7 +28,6 @@ export function run(input: RunInput): FunctionRunResult {
 
   // If no configuration metafield exists, default to enabled for testing
   const enabled = configuration.enabled !== undefined ? Boolean(configuration.enabled) : true;
-  const configuredTag = configuration.pfcMemberTag || "PFC_member";
   
   // The GraphQL query checks for hasAnyTag with hardcoded "PFC_member" 
   // This should be true if the customer has the PFC_member tag
@@ -37,7 +35,6 @@ export function run(input: RunInput): FunctionRunResult {
 
   console.error("Parsed configuration:", configuration);
   console.error("Enabled:", enabled);
-  console.error("Configured tag:", configuredTag);
   console.error("Customer is member:", customerIsMember);
 
   if (!customerIsMember) {

@@ -26,7 +26,6 @@ type LoaderData = {
     discountPercent: number;
     isEnabled: boolean;
     freeShippingEnabled: boolean;
-    pfcMemberTag: string;
     productDiscountId?: string | null;
     shippingDiscountId?: string | null;
     createdAt: Date;
@@ -51,7 +50,6 @@ type LoaderData = {
       tags: string[];
     }>;
   };
-  availableTags: string[];
 };
 
 type ActionData = {
@@ -78,52 +76,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           discountPercent: 0,
           isEnabled: false,
           freeShippingEnabled: false,
-          pfcMemberTag: "PFC_member",
           productDiscountId: null,
           shippingDiscountId: null,
         },
       });
     }
 
-    // Get all available tags from customers (optional - may not have permissions)
-    let availableTags: string[] = [];
-    try {
-      const customersResponse = await admin.graphql(
-        `
-        query getCustomersWithTags($first: Int!) {
-          customers(first: $first) {
-            edges {
-              node {
-                tags
-              }
-            }
-          }
-        }
-      `,
-        {
-          variables: { first: 250 },
-        },
-      );
-
-      const customersData = await customersResponse.json();
-      const customers = customersData.data?.customers?.edges || [];
-
-      // Extract all unique tags
-      const allTags = new Set<string>();
-      customers.forEach((edge: any) => {
-        const tags = edge.node.tags || [];
-        tags.forEach((tag: string) => allTags.add(tag));
-      });
-
-      availableTags = Array.from(allTags).sort();
-    } catch (error) {
-      console.log(
-        "Could not fetch customer tags - permissions may be restricted:",
-        error,
-      );
-      // Only provide the default configured tag
-      availableTags = [discountSettings.pfcMemberTag];
-    }
 
     // Get debug info - sample products
     let products: any[] = [];
@@ -214,7 +172,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       sampleCustomers,
     };
 
-    return json({ discountSettings, debugInfo, availableTags });
+    return json({ discountSettings, debugInfo });
   } catch (error) {
     console.error("Error in loader:", error);
     // Return a basic response if authentication fails
@@ -225,7 +183,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         discountPercent: 0,
         isEnabled: false,
         freeShippingEnabled: false,
-        pfcMemberTag: "PFC_member",
         productDiscountId: null,
         shippingDiscountId: null,
         createdAt: new Date(),
@@ -236,7 +193,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         sampleProducts: [],
         sampleCustomers: [],
       },
-      availableTags: ["PFC_member"],
     });
   }
 };
@@ -253,7 +209,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
     const isEnabled = formData.get("isEnabled") === "true";
     const freeShippingEnabled = formData.get("freeShippingEnabled") === "true";
-    const pfcMemberTag = formData.get("pfcMemberTag") as string;
 
     // Validate discount percentage
     if (
@@ -267,13 +222,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       } as ActionData);
     }
 
-    // Validate tag
-    if (!pfcMemberTag || pfcMemberTag.trim() === "") {
-      return json({
-        error: "PFC member tag is required",
-        success: false,
-      } as ActionData);
-    }
 
     // Update settings first
     await (db as any).discountSettings.upsert({
@@ -282,14 +230,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         discountPercent,
         isEnabled,
         freeShippingEnabled,
-        pfcMemberTag: pfcMemberTag.trim(),
       },
       create: {
         shop: session.shop,
         discountPercent,
         isEnabled,
         freeShippingEnabled,
-        pfcMemberTag: pfcMemberTag.trim(),
         productDiscountId: null,
         shippingDiscountId: null,
       },
@@ -593,7 +539,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           type: "json",
           value: JSON.stringify({
             enabled: !!discountSettings.freeShippingEnabled,
-            pfcMemberTag: discountSettings.pfcMemberTag,
+            pfcMemberTag: "PFC_member",
           }),
         });
       }
@@ -739,7 +685,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function DiscountSettings() {
-  const { discountSettings, debugInfo, availableTags } =
+  const { discountSettings, debugInfo } =
     useLoaderData<LoaderData>();
   const fetcher = useFetcher<ActionData>();
   const shopify = useAppBridge();
@@ -751,7 +697,6 @@ export default function DiscountSettings() {
   const [freeShippingEnabled, setFreeShippingEnabled] = useState(
     discountSettings.freeShippingEnabled || false,
   );
-  const [selectedTag, setSelectedTag] = useState(discountSettings.pfcMemberTag);
   const [showDebug, setShowDebug] = useState(false);
   const [debugData, setDebugData] = useState<any>(null);
 
@@ -770,7 +715,6 @@ export default function DiscountSettings() {
     formData.append("discountPercent", percentage);
     formData.append("isEnabled", enabled.toString());
     formData.append("freeShippingEnabled", freeShippingEnabled.toString());
-    formData.append("pfcMemberTag", selectedTag);
     formData.append("action", "saveAndConfigure"); // New action that does both
     fetcher.submit(formData, { method: "POST" });
   };
@@ -810,21 +754,6 @@ export default function DiscountSettings() {
                     autoComplete="off"
                   />
 
-                  <TextField
-                    label="PFC Member Tag"
-                    value={selectedTag}
-                    onChange={setSelectedTag}
-                    helpText="Enter the tag that identifies PFC members. Make sure to tag your PFC members with this exact tag for discounts to apply."
-                    autoComplete="off"
-                  />
-
-                  {availableTags.length > 1 && (
-                    <Banner tone="info">
-                      <p>
-                        Available tags in your store: {availableTags.join(", ")}
-                      </p>
-                    </Banner>
-                  )}
 
                   <Checkbox
                     label="Enable dynamic pricing"

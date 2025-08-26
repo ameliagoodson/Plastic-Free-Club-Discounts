@@ -21,14 +21,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       return json({
         isEnabled: false,
         discountPercent: 0,
-        pfcMemberTag: "PFC_member",
       });
     }
 
     return json({
       isEnabled: settings.isEnabled,
       discountPercent: settings.discountPercent,
-      pfcMemberTag: settings.pfcMemberTag,
     });
   } catch (error) {
     console.error("Error fetching discount settings:", error);

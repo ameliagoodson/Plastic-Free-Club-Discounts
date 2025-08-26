@@ -104,11 +104,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               "1. Go to Shopify Admin > Customers",
               "2. Find customer ID: " + customerId,
               "3. Check if they have the tag: '" +
-                (settings?.pfcMemberTag || "PFC_member") +
+                "PFC_member" +
                 "'",
               "4. If they have the tag, they should get the discount",
             ],
-            configuredTag: settings?.pfcMemberTag || "PFC_member",
+            configuredTag: "PFC_member",
             discountSettings: {
               isEnabled: settings?.isEnabled || false,
               discountPercent: settings?.discountPercent || 0,
@@ -149,7 +149,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Success - we have customer data
     const customerTags = customer?.tags || [];
-    const configuredTag = settings?.pfcMemberTag || "PFC_member";
+    const configuredTag = "PFC_member";
     const isPfcMember = customerTags.some(
       (tag: string) =>
         tag.trim().toLowerCase() === configuredTag.trim().toLowerCase(),
@@ -173,7 +173,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       discountSettings: {
         isEnabled: settings?.isEnabled || false,
         discountPercent: settings?.discountPercent || 0,
-        pfcMemberTag: configuredTag,
       },
       debug: {
         customerId,

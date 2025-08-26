@@ -58,7 +58,7 @@ export async function calculateDynamicPrice(
     const customerData = await customerResponse.json();
     const customer = customerData.data?.customer;
     const customerTags = customer?.tags || [];
-    const configuredTag = (settings as any).pfcMemberTag || "PFC_member";
+    const configuredTag = "PFC_member";
     
     // Case-insensitive and whitespace-trimmed comparison
     const isPfcMember = customerTags.some((tag: string) => 

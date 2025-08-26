@@ -38,7 +38,6 @@ model DiscountSettings {
   discountPercent      Float    @default(0)
   isEnabled            Boolean  @default(false)
   freeShippingEnabled  Boolean  @default(false) // Separate toggle for free shipping
-  pfcMemberTag         String   @default("plastic-free-club") // Tag used to identify PFC members
   productDiscountId    String?  // Store the Shopify discount ID for updates
   shippingDiscountId   String?  // Store the Shopify shipping discount ID for updates
   createdAt            DateTime @default(now())

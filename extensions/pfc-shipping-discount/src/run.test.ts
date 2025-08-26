@@ -7,6 +7,13 @@ describe('shipping discounts function', () => {
     const result = run({
       discountNode: {
         metafield: null
+      },
+      cart: {
+        buyerIdentity: {
+          customer: {
+            hasAnyTag: false
+          }
+        }
       }
     });
     const expected: FunctionResult = {

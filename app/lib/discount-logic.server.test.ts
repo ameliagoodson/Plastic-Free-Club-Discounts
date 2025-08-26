@@ -133,7 +133,6 @@ describe('calculateDynamicPrice', () => {
         shop: 'test-shop',
         discountPercent: 10,
         isEnabled: false,
-        pfcMemberTag: 'PFC_member'
       })
 
       const result = await calculateDynamicPrice(
@@ -160,7 +159,6 @@ describe('calculateDynamicPrice', () => {
         shop: 'test-shop',
         discountPercent: 10,
         isEnabled: true,
-        pfcMemberTag: 'PFC_member'
       })
 
       mockAdmin.graphql
@@ -210,7 +208,6 @@ describe('calculateDynamicPrice', () => {
         shop: 'test-shop',
         discountPercent: 10,
         isEnabled: true,
-        pfcMemberTag: 'PFC_member'
       })
 
       mockAdmin.graphql
@@ -261,7 +258,6 @@ describe('calculateDynamicPrice', () => {
         shop: 'test-shop',
         discountPercent: 10,
         isEnabled: true,
-        pfcMemberTag: 'PFC_member'
       })
 
       // Mock customer as PFC member
