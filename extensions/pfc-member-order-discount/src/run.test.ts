@@ -196,6 +196,53 @@ describe('PFC Member Order Discount Function', () => {
       // BUT your bug shows only $3.40 total - suggesting only moisturizer discount applies!
     });
 
+    it('should create separate discount objects for multiple qualifying products - REAL WORLD TEST', () => {
+      // Test with two simple products that should both get discounts
+      const lines = [
+        createCartLine({
+          id: 'gid://shopify/ProductVariant/product1',
+          quantity: 1,
+          currentPrice: '25.00',
+          compareAtPrice: '25.00'  // Same price, should get 10% off = $22.50, so $2.50 discount
+        }),
+        createCartLine({
+          id: 'gid://shopify/ProductVariant/product2', 
+          quantity: 1,
+          currentPrice: '40.00',
+          compareAtPrice: '40.00'  // Same price, should get 10% off = $36, so $4 discount  
+        })
+      ];
+
+      const result = run({
+        discountNode: createDiscountNode(10),
+        cart: createCart({ isCustomerMember: true, lines })
+      });
+
+      // CRITICAL: Must have TWO separate discount objects
+      expect(result.discounts).toHaveLength(2);
+      
+      // Check that each product gets its own discount object
+      const product1Discount = result.discounts.find(d => 
+        d.targets[0].productVariant?.id === 'gid://shopify/ProductVariant/product1'
+      );
+      const product2Discount = result.discounts.find(d => 
+        d.targets[0].productVariant?.id === 'gid://shopify/ProductVariant/product2'
+      );
+
+      expect(product1Discount).toBeDefined();
+      expect(product2Discount).toBeDefined();
+      
+      // Verify amounts
+      expect(product1Discount?.value.fixedAmount?.amount).toBe('2.50'); // $25 - $22.50 = $2.50 discount
+      expect(product2Discount?.value.fixedAmount?.amount).toBe('4.00');  // $40 - $36 = $4.00 discount
+
+      // Verify each discount targets only its specific product
+      expect(product1Discount?.targets).toHaveLength(1);
+      expect(product2Discount?.targets).toHaveLength(1);
+      
+      console.log('DEBUG - Full result:', JSON.stringify(result, null, 2));
+    });
+
     it('should handle multiple quantities correctly - YOUR QUANTITY BUG', () => {
       // Test case: 2 moisturizers should give 2 × $3.40 = $6.80 discount
       const line = createCartLine({

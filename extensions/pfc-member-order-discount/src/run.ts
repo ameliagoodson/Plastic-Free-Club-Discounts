@@ -57,9 +57,11 @@ export function run(input: RunInput): FunctionRunResult {
     return EMPTY;
   }
 
-  const discounts: Discount[] = [];
+  // Collect all qualifying targets and calculate total discount amount
+  const targets: Target[] = [];
+  let totalDiscountAmount = 0;
 
-  // Add product discounts - calculate fixed amount based on compare-at-price
+  // Process each line item to find qualifying products
   for (const line of input.cart.lines) {
     const regular = Number(line.cost.amountPerQuantity.amount);
     const compareAt = line.cost.compareAtAmountPerQuantity?.amount
@@ -101,23 +103,29 @@ export function run(input: RunInput): FunctionRunResult {
 
     // For multiple quantities, we need to multiply the per-unit discount by the quantity
     // This ensures that if you have 2 items with $3.40 discount each, you get $6.80 total
-    const totalDiscountAmount = discountAmountPerUnit * line.quantity;
+    const lineDiscountAmount = discountAmountPerUnit * line.quantity;
+    totalDiscountAmount += lineDiscountAmount;
 
     console.error("DEBUG - Calculation - quantity:", line.quantity);
-    console.error("DEBUG - Calculation - totalDiscountAmount:", totalDiscountAmount);
+    console.error("DEBUG - Calculation - lineDiscountAmount:", lineDiscountAmount);
 
+    // Add this line as a target for the single discount
+    targets.push({
+      productVariant: {
+        id: (line.merchandise as any).id,
+        quantity: line.quantity,
+      },
+    } as Target);
+  }
+
+  // Create a single discount with all qualifying targets
+  const discounts: Discount[] = [];
+  if (targets.length > 0) {
     const customMessage = configuration.productDiscountMessage || "PFC Member Discount";
     
     discounts.push({
       message: customMessage,
-      targets: [
-        {
-          productVariant: {
-            id: (line.merchandise as any).id,
-            quantity: line.quantity,
-          },
-        } as Target,
-      ],
+      targets: targets,
       value: { 
         fixedAmount: { 
           amount: totalDiscountAmount.toFixed(2) 
@@ -136,18 +144,17 @@ export function run(input: RunInput): FunctionRunResult {
   }
 
   console.error("DEBUG - Final result - discounts count:", discounts.length);
-  console.error("DEBUG - Final result - total discount amounts:");
-  let totalDiscount = 0;
-  discounts.forEach((discount, index) => {
-    const amount = parseFloat(discount.value.fixedAmount?.amount || "0");
-    totalDiscount += amount;
-    const quantity = discount.targets[0]?.productVariant?.quantity || 1;
-    console.error(`DEBUG - Discount ${index + 1}: $${amount} total (for ${quantity} units) for ${discount.targets[0]?.productVariant?.id}`);
-  });
-  console.error("DEBUG - Final result - total expected discount: $" + totalDiscount.toFixed(2));
+  console.error("DEBUG - Final result - qualifying targets:", targets.length);
+  if (discounts.length > 0) {
+    console.error("DEBUG - Final result - single discount amount: $" + totalDiscountAmount.toFixed(2));
+    console.error("DEBUG - Final result - discount targets:");
+    targets.forEach((target, index) => {
+      console.error(`DEBUG - Target ${index + 1}: ${target.productVariant?.quantity} units of ${target.productVariant?.id}`);
+    });
+  }
   
   return {
-    discountApplicationStrategy: DiscountApplicationStrategy.Maximum,
+    discountApplicationStrategy: DiscountApplicationStrategy.First,
     discounts,
   };
 }
