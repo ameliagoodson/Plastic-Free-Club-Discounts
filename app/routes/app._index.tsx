@@ -26,6 +26,8 @@ type LoaderData = {
     discountPercent: number;
     isEnabled: boolean;
     freeShippingEnabled: boolean;
+    productDiscountMessage: string;
+    shippingDiscountMessage: string;
     productDiscountId?: string | null;
     shippingDiscountId?: string | null;
     createdAt: Date;
@@ -76,6 +78,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           discountPercent: 0,
           isEnabled: false,
           freeShippingEnabled: false,
+          productDiscountMessage: "PFC Member Discount",
+          shippingDiscountMessage: "Free Shipping for PFC Members",
           productDiscountId: null,
           shippingDiscountId: null,
         },
@@ -183,6 +187,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         discountPercent: 0,
         isEnabled: false,
         freeShippingEnabled: false,
+        productDiscountMessage: "PFC Member Discount",
+        shippingDiscountMessage: "Free Shipping for PFC Members",
         productDiscountId: null,
         shippingDiscountId: null,
         createdAt: new Date(),
@@ -209,6 +215,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
     const isEnabled = formData.get("isEnabled") === "true";
     const freeShippingEnabled = formData.get("freeShippingEnabled") === "true";
+    const productDiscountMessage = formData.get("productDiscountMessage") as string;
+    const shippingDiscountMessage = formData.get("shippingDiscountMessage") as string;
 
     // Validate discount percentage
     if (
@@ -222,6 +230,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       } as ActionData);
     }
 
+    // Validate messages
+    if (!productDiscountMessage?.trim()) {
+      return json({
+        error: "Product discount message is required",
+        success: false,
+      } as ActionData);
+    }
+
+    if (!shippingDiscountMessage?.trim()) {
+      return json({
+        error: "Shipping discount message is required", 
+        success: false,
+      } as ActionData);
+    }
 
     // Update settings first
     await (db as any).discountSettings.upsert({
@@ -230,12 +252,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         discountPercent,
         isEnabled,
         freeShippingEnabled,
+        productDiscountMessage: productDiscountMessage.trim(),
+        shippingDiscountMessage: shippingDiscountMessage.trim(),
       },
       create: {
         shop: session.shop,
         discountPercent,
         isEnabled,
         freeShippingEnabled,
+        productDiscountMessage: productDiscountMessage.trim(),
+        shippingDiscountMessage: shippingDiscountMessage.trim(),
         productDiscountId: null,
         shippingDiscountId: null,
       },
@@ -526,6 +552,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           type: "json",
           value: JSON.stringify({
             percentage: discountSettings.discountPercent,
+            productDiscountMessage: discountSettings.productDiscountMessage,
           }),
         });
       }
@@ -539,7 +566,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           type: "json",
           value: JSON.stringify({
             enabled: !!discountSettings.freeShippingEnabled,
-            pfcMemberTag: "PFC_member",
+            shippingDiscountMessage: discountSettings.shippingDiscountMessage,
           }),
         });
       }
@@ -697,6 +724,12 @@ export default function DiscountSettings() {
   const [freeShippingEnabled, setFreeShippingEnabled] = useState(
     discountSettings.freeShippingEnabled || false,
   );
+  const [productDiscountMessage, setProductDiscountMessage] = useState(
+    discountSettings.productDiscountMessage || "PFC Member Discount",
+  );
+  const [shippingDiscountMessage, setShippingDiscountMessage] = useState(
+    discountSettings.shippingDiscountMessage || "Free Shipping for PFC Members",
+  );
   const [showDebug, setShowDebug] = useState(false);
   const [debugData, setDebugData] = useState<any>(null);
 
@@ -715,6 +748,8 @@ export default function DiscountSettings() {
     formData.append("discountPercent", percentage);
     formData.append("isEnabled", enabled.toString());
     formData.append("freeShippingEnabled", freeShippingEnabled.toString());
+    formData.append("productDiscountMessage", productDiscountMessage);
+    formData.append("shippingDiscountMessage", shippingDiscountMessage);
     formData.append("action", "saveAndConfigure"); // New action that does both
     fetcher.submit(formData, { method: "POST" });
   };
@@ -767,6 +802,22 @@ export default function DiscountSettings() {
                     checked={freeShippingEnabled}
                     onChange={setFreeShippingEnabled}
                     helpText={`Free shipping is currently ${freeShippingEnabled ? "ACTIVE" : "DISABLED"} for PFC members`}
+                  />
+
+                  <TextField
+                    label="Product Discount Message"
+                    value={productDiscountMessage}
+                    onChange={setProductDiscountMessage}
+                    helpText="Custom message displayed for product discounts"
+                    autoComplete="off"
+                  />
+
+                  <TextField
+                    label="Shipping Discount Message"
+                    value={shippingDiscountMessage}
+                    onChange={setShippingDiscountMessage}
+                    helpText="Custom message displayed for free shipping"
+                    autoComplete="off"
                   />
                 </BlockStack>
 

@@ -16,6 +16,8 @@ const EMPTY: FunctionRunResult = {
 type Configuration = {
   percentage?: number;
   freeShipping?: boolean;
+  productDiscountMessage?: string;
+  shippingDiscountMessage?: string;
 };
 
 export function run(input: RunInput): FunctionRunResult {
@@ -104,8 +106,10 @@ export function run(input: RunInput): FunctionRunResult {
     console.error("DEBUG - Calculation - quantity:", line.quantity);
     console.error("DEBUG - Calculation - totalDiscountAmount:", totalDiscountAmount);
 
+    const customMessage = configuration.productDiscountMessage || "PFC Member Discount";
+    
     discounts.push({
-      message: `PFC Member Discount (${percent}% off compare-at-price)`,
+      message: customMessage,
       targets: [
         {
           productVariant: {

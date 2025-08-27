@@ -38,6 +38,8 @@ model DiscountSettings {
   discountPercent      Float    @default(0)
   isEnabled            Boolean  @default(false)
   freeShippingEnabled  Boolean  @default(false) // Separate toggle for free shipping
+  productDiscountMessage  String @default("PFC Member Discount") // Custom message for product discounts
+  shippingDiscountMessage String @default("Free Shipping for PFC Members") // Custom message for shipping discounts
   productDiscountId    String?  // Store the Shopify discount ID for updates
   shippingDiscountId   String?  // Store the Shopify shipping discount ID for updates
   createdAt            DateTime @default(now())

@@ -3,7 +3,7 @@
 client_id = "0cc45ef18b4a6e0958e4ff4d647fcd97"
 name = "Plastic Free Club Discounts"
 handle = "plastic-free-club-discounts"
-application_url = "https://artistic-publisher-concert-adipex.trycloudflare.com"
+application_url = "https://history-institutional-mirror-hopkins.trycloudflare.com"
 embedded = true
 
 [build]
@@ -27,9 +27,9 @@ scopes = "write_products,read_customers,write_discounts"
 
 [auth]
 redirect_urls = [
-  "https://artistic-publisher-concert-adipex.trycloudflare.com/auth/callback",
-  "https://artistic-publisher-concert-adipex.trycloudflare.com/auth/shopify/callback",
-  "https://artistic-publisher-concert-adipex.trycloudflare.com/api/auth/callback"
+  "https://history-institutional-mirror-hopkins.trycloudflare.com/auth/callback",
+  "https://history-institutional-mirror-hopkins.trycloudflare.com/auth/shopify/callback",
+  "https://history-institutional-mirror-hopkins.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

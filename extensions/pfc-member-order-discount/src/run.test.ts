@@ -73,7 +73,7 @@ describe('PFC Member Order Discount Function', () => {
 
       expect(result.discounts).toHaveLength(1);
       expect(result.discounts[0]).toEqual({
-        message: 'PFC Member Discount (10% off compare-at-price)',
+        message: 'PFC Member Discount',
         targets: [{
           productVariant: {
             id: 'gid://shopify/ProductVariant/123',
@@ -119,6 +119,30 @@ describe('PFC Member Order Discount Function', () => {
 
       // Should not apply discount because retail ($8) is better than PFC ($9)
       expect(result.discounts).toHaveLength(0);
+    });
+
+    it('uses custom message when provided in configuration', () => {
+      const line = createCartLine({
+        id: 'gid://shopify/ProductVariant/123',
+        quantity: 1,
+        currentPrice: '25.00',
+        compareAtPrice: '25.00'
+      });
+
+      const result = run({
+        discountNode: {
+          metafield: {
+            value: JSON.stringify({
+              percentage: 10,
+              productDiscountMessage: 'Custom PFC Discount Message'
+            })
+          }
+        },
+        cart: createCart({ isCustomerMember: true, lines: [line] })
+      });
+
+      expect(result.discounts).toHaveLength(1);
+      expect(result.discounts[0].message).toBe('Custom PFC Discount Message');
     });
   });
 

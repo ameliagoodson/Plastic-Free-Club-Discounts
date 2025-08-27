@@ -11,6 +11,8 @@ const EMPTY_DISCOUNT: FunctionRunResult = {
 
 type Configuration = {
   enabled?: boolean;
+  productDiscountMessage?: string;
+  shippingDiscountMessage?: string;
 };
 
 export function run(input: RunInput): FunctionRunResult {
@@ -80,9 +82,11 @@ export function run(input: RunInput): FunctionRunResult {
     return EMPTY_DISCOUNT;
   }
 
+  const customMessage = configuration.shippingDiscountMessage || "Free Shipping for PFC Members";
+  
   const discounts: Discount[] = [
     {
-      message: "Free Shipping for PFC Members",
+      message: customMessage,
       targets,
       value: {
         percentage: {
