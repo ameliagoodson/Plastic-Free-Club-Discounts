@@ -3,7 +3,7 @@ services:
     name: pfc-discounts-prod
     env: node
     repo: https://github.com/your-username/plastic-free-club-discounts
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm run build && npx prisma migrate deploy
     startCommand: npm run start
     plan: starter
     envVars:
