@@ -3,7 +3,7 @@
 client_id = "38f20c3131b02df064c038805c458e8a"
 name = "Plastic Free Club Discounts"
 handle = "plastic-free-club-discounts"
-application_url = "https://example.com/"
+application_url = "https://plastic-free-club-discounts.onrender.com"
 embedded = true
 
 [build]
@@ -17,7 +17,7 @@ api_version = "2025-07"
 scopes = "read_customers,write_discounts,write_products"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://plastic-free-club-discounts.onrender.com/auth/callback" ]
 
 [pos]
 embedded = false
