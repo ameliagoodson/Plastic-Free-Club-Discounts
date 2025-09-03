@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "0cc45ef18b4a6e0958e4ff4d647fcd97"
-name = "Plastic Free Club Discounts"
-handle = "plastic-free-club-discounts"
+name = "PFC Discounts (Dev)"
+handle = "plastic-free-club-discounts-development"
 application_url = "https://vacations-penn-nursing-handbook.trycloudflare.com"
 embedded = true
 
