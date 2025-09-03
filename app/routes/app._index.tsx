@@ -675,6 +675,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         } as ActionData);
       }
 
+      // Set shop metafield for theme access (for banner percentage display)
+      if (discountSettings.isEnabled && discountSettings.discountPercent > 0) {
+        // First get the shop ID
+        const shopQuery = await admin.graphql(`
+          #graphql
+          query {
+            shop {
+              id
+            }
+          }
+        `);
+        const shopData = await shopQuery.json();
+        const shopId = shopData.data?.shop?.id;
+
+        if (shopId) {
+          const shopMetafield = {
+            ownerId: shopId,
+            namespace: "pfc_discount",
+            key: "percentage",
+            type: "number_integer",
+            value: discountSettings.discountPercent.toString(),
+          };
+
+          console.log("Setting shop metafield:", shopMetafield);
+
+        const shopMetaResp = await admin.graphql(
+          `#graphql
+          mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+              metafields { id key namespace type value }
+              userErrors { field message code }
+            }
+          }`,
+          { variables: { metafields: [shopMetafield] } },
+        );
+
+          const shopMetaJson = await shopMetaResp.json();
+          console.log("Shop metafield response:", JSON.stringify(shopMetaJson, null, 2));
+        }
+      }
+
       return json({
         success: true,
         message:

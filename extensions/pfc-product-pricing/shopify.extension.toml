@@ -1,3 +1,7 @@
 name = "pfc-product-pricing"
 type = "theme"
 
+[[blocks]]
+type = "pfc_member_banner"
+name = "PFC Member Discount Banner"
+

@@ -1,0 +1,182 @@
+{% comment %}
+  PFC Member Discount Banner - Only visible to PFC members
+  Shows discount information to members at checkout/cart
+{% endcomment %}
+
+{%- liquid
+  # Check if customer is logged in and has PFC member tag
+  assign is_pfc_member = false
+  if customer and customer.tags contains 'PFC_member'
+    assign is_pfc_member = true
+  endif
+-%}
+
+{%- if is_pfc_member -%}
+  <style>
+    .pfc-member-banner {
+      background: {{ block.settings.background_color | default: '#4CAF50' }};
+      color: {{ block.settings.text_color | default: '#ffffff' }};
+      padding: {{ block.settings.padding | default: '16px' }};
+      margin: 0;
+      width: 100%;
+      text-align: {{ block.settings.text_alignment | default: 'center' }};
+      font-weight: {{ block.settings.font_weight | default: '500' }};
+      {%- if block.settings.border_radius > 0 -%}
+      border-radius: {{ block.settings.border_radius }}px;
+      {%- endif -%}
+      {%- if block.settings.show_shadow -%}
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      {%- endif -%}
+    }
+
+    .pfc-banner-content {
+      display: flex;
+      align-items: center;
+      justify-content: {{ block.settings.text_alignment | default: 'center' }};
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pfc-banner-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+    }
+
+    .pfc-banner-percentage {
+      font-size: 0.9em;
+      margin-top: 4px;
+      opacity: 0.9;
+    }
+  </style>
+
+  <div class="pfc-member-banner">
+    <div class="pfc-banner-content">
+      <span>
+        <strong>{{ block.settings.prefix_text | default: 'PFC Member:' }}</strong>
+        {{ block.settings.banner_text | default: "You'll receive your exclusive member discount at checkout!" }}
+      </span>
+    </div>
+
+    {%- if block.settings.show_percentage and shop.metafields.pfc_discount.percentage -%}
+      <div class="pfc-banner-percentage">Save {{ shop.metafields.pfc_discount.percentage }}% on eligible products</div>
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "PFC Member Banner",
+  "target": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content Settings"
+    },
+    {
+      "type": "text",
+      "id": "prefix_text",
+      "label": "Prefix Text",
+      "default": "PFC Member:",
+      "info": "Text shown before the main message"
+    },
+    {
+      "type": "text",
+      "id": "banner_text",
+      "label": "Banner Message",
+      "default": "You'll receive your exclusive member discount at checkout!",
+      "info": "Main message shown to PFC members"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_percentage",
+      "label": "Show discount percentage",
+      "default": true,
+      "info": "Display the discount percentage if available"
+    },
+    {
+      "type": "header",
+      "content": "Visual Settings"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background Color",
+      "default": "#e11c90"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Text Alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "text",
+      "id": "padding",
+      "label": "Padding",
+      "default": "16px",
+      "info": "CSS padding value (e.g. 16px, 1rem, 20px 40px)"
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border Radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "select",
+      "id": "font_weight",
+      "label": "Font Weight",
+      "options": [
+        {
+          "value": "400",
+          "label": "Normal"
+        },
+        {
+          "value": "500",
+          "label": "Medium"
+        },
+        {
+          "value": "600",
+          "label": "Semi Bold"
+        },
+        {
+          "value": "700",
+          "label": "Bold"
+        }
+      ],
+      "default": "500"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shadow",
+      "label": "Show shadow",
+      "default": true
+    }
+  ]
+}
+{% endschema %}
